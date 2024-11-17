@@ -1,5 +1,6 @@
 import os
 import re
+import sys
 import subprocess
 from colorama import init
 init(autoreset=True)
