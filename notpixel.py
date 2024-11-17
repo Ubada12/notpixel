@@ -6,6 +6,7 @@ import asyncio
 import signal
 import random
 import requests
+import httpx
 from urllib.parse import unquote
 from telethon import TelegramClient
 from telethon.errors import FloodWaitError
@@ -267,30 +268,40 @@ async def get_balance(query, acc_name, k: int):
         "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 Edg/130.0.0.0"
     }
 
-    # Send GET request
-    response = requests.get(url, headers=headers)
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.get(url, headers=headers)
 
-    # Check for successful response
-    if response.status_code == 200:
-        # Parse the JSON response
-        data = response.json()
-    
-        # Extract required values
-        user_balance = data.get("userBalance")
-        charges = data.get("charges")
-        max_charges = data.get("maxCharges")
-    
-        if k == 1:
-            print(f"{BLUE}{acc_name}{RESET} {YELLOW}--> Current Balance:{RESET} {GREEN}{user_balance}{RESET} {YELLOW}| Total Charges:{RESET} {GREEN}{charges}/{max_charges}{RESET}")
-            return user_balance, charges
-        elif k == 2:
-            print(f"{CYAN}{acc_name}{RESET} {YELLOW}--> Current Balance:{RESET} {GREEN}{user_balance}{RESET} {YELLOW}| Total Charges:{RESET} {GREEN}{charges}/{max_charges}{RESET}")
-            return user_balance, charges
-        
-    else:
-        print(f"{RED}Failed to fetch data: {response.status_code}{RESET}")
-        print(f"Authetication: initData {query}")
-        exit(1)
+            if response.status_code == 200:
+                # Parse the JSON response
+                data = response.json()
+                user_balance = data.get("userBalance")
+                charges = data.get("charges")
+                max_charges = data.get("maxCharges")
+                
+                if k == 1:
+                    print(f"{BLUE}{acc_name}{RESET} {YELLOW}--> Current Balance:{RESET} {GREEN}{user_balance}{RESET} {YELLOW}| Total Charges:{RESET} {GREEN}{charges}/{max_charges}{RESET}")
+                elif k == 2:
+                    print(f"{CYAN}{acc_name}{RESET} {YELLOW}--> Current Balance:{RESET} {GREEN}{user_balance}{RESET} {YELLOW}| Total Charges:{RESET} {GREEN}{charges}/{max_charges}{RESET}")
+                
+                return user_balance, charges
+            else:
+                print(f"{RED}Failed to fetch data: {response.status_code}{RESET}")
+                response_body = response.text
+                
+                # Save response to a file if too long
+                if len(response_body) > 1000:
+                    with open("response_body.txt", "w", encoding="utf-8") as file:
+                        file.write(response_body)
+                    print("Response body saved to response_body.txt")
+                else:
+                    print("Response body:", response_body)
+                print(f"Authentication: initData {query}")
+                exit(1)
+
+        except httpx.RequestError as e:
+            print(f"{RED}An error occurred while making the request: {e}{RESET}")
+            exit(1)
 
 async def change_template(query_id, url):
     headers = {
